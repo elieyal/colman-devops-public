@@ -1,0 +1,16 @@
+docker install
+Windows - https://docs.docker.com/desktop/windows/install/
+MAC - https://docs.docker.com/desktop/mac/install/
+ubuntu - https://docs.docker.com/engine/install/ubuntu/
+
+docekrhub:
+https://hub.docker.com
+
+nginx image example:
+https://hub.docker.com/_/nginx
+
+Dockerfile reference
+https://docs.docker.com/engine/reference/builder/
+
+docker-compose install (no need for MAC/Windows)
+https://docs.docker.com/compose/install/

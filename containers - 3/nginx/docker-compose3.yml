@@ -1,0 +1,11 @@
+version: "3.3"
+services:
+  web:
+    image: nginx
+    container_name: my_web
+    environment:
+      - NODE_ENV=prod
+    ports:
+      - "80:80"
+    volumes:
+      - "./index.html:/usr/share/nginx/html/index.html"
