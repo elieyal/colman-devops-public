@@ -1,0 +1,160 @@
+- name: Create a nginx server with site
+  hosts: localhost
+  connection: local
+  gather_facts: False
+  vars_files:
+    - group_vars/env
+
+  tasks:
+  - name: create VPC
+    amazon.aws.ec2_vpc_net:
+      name: "{{ vpc_name }}"
+      cidr_block: "{{ network }}"
+      region: "{{ aws_region }}"
+      state: present
+      dns_hostnames: yes
+      dns_support: yes
+      multi_ok: no
+      tags:
+        Name: "{{ vpc_name }}"
+    register: vpc
+
+  - name: associate subnet to the VPC
+    amazon.aws.ec2_vpc_subnet:
+      state: present
+      vpc_id: "{{ vpc.vpc.id }}"
+      region: "{{ aws_region }}"
+      cidr: "{{ subnet_cidr }}"
+      map_public: yes
+      az: "{{ subnet }}"
+      resource_tags:
+        Name: "{{ vpc_name }}"
+      wait: yes
+    register: subnet
+
+  - name: create IGW
+    amazon.aws.ec2_vpc_igw:
+     vpc_id: "{{ vpc.vpc.id }}"
+     region: "{{ aws_region }}"
+     state: present
+     tags:
+       Name: "{{ vpc_name }}_igw"
+    register: igw
+
+  - name: Route table for public Subnet
+    amazon.aws.ec2_vpc_route_table:
+      vpc_id: "{{ vpc.vpc.id }}"
+      region: "{{ aws_region }}"
+      state: present
+      subnets:
+        - "{{ subnet.subnet.id }}"
+      routes:
+        - dest: 0.0.0.0/0
+          gateway_id: "{{ igw.gateway_id  }}"
+      tags:
+        Name: "{{ vpc_name }}_public_rt"
+
+  - name: Create security group
+    ec2_group:
+      name: "{{ vpc_name }} VPC SG"
+      description: "{{ vpc_name }} VPC SG"
+      vpc_id: "{{ vpc.vpc.id }}"
+      region: "{{ aws_region }}"
+      state: present
+      rules:
+        - proto: tcp
+          ports:
+          - 80
+          - 22
+          cidr_ip: 0.0.0.0/0
+    register: sg
+
+  - name: Create server
+    amazon.aws.ec2_instance:
+      image_id: "{{ aws_centos_ami }}"
+      wait: yes
+      instance_type: "{{ Server_type }}"
+      region: "{{ aws_region }}"
+      security_group: "{{ sg.group_id }}"
+      vpc_subnet_id: "{{ subnet.subnet.id }}"
+      key_name: "{{ keypair }}"
+      volumes:
+        - device_name: /dev/sda1
+          ebs:
+            volume_type: gp3
+            volume_size: "{{ server_volume_size }}"
+            delete_on_termination: true
+      tags:
+        Name: "{{ server_name }}"
+        Environment: "{{ env }}"
+      exact_count: 1
+      wait_timeout: 300
+      network:
+        assign_public_ip: yes
+      state: running
+    register: server_ec2
+    
+  - name: get ip of instance
+    amazon.aws.ec2_instance_info:
+      filters:
+        "tag:Name": "{{ server_name }}"
+        instance-state-name: [ "running"]
+    register: ec2_data
+  
+  - debug: var=ec2_data.instances[0].public_ip_address
+
+  - name: Add server public IP to application host group
+    add_host: hostname={{ ec2_data.instances[0].public_ip_address }} groups=app
+
+  - name: Wait for SSH to start using external IP
+    wait_for:
+      host: "{{ ec2_data.instances[0].public_ip_address }}"
+      port: 22
+      timeout: 300
+
+##############################################################
+- name: Setup app server
+  hosts: app
+  user: centos
+  become: True
+  gather_facts: True
+  vars_files:
+    - group_vars/env
+  tasks:
+    - name: install base packages
+      yum: 
+        name: 
+          - epel-release
+        state: present
+
+    - name: Add signing key
+      ansible.builtin.rpm_key:
+        key: "https://download.docker.com/linux/centos/gpg"
+        state: present
+
+    - name: Add repository into repo.d list
+      yum_repository:
+        name: docker
+        description: docker repository
+        baseurl: "https://download.docker.com/linux/centos/$releasever/$basearch/stable"
+        enabled: true
+        gpgcheck: true
+        gpgkey: "https://download.docker.com/linux/centos/gpg"
+
+    - name: Install Docker
+      yum:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+        state: latest
+        update_cache: true
+
+    - name: Start Docker
+      ansible.builtin.service:
+        name: "docker"
+        enabled: true
+        state: started
+
+    - name: start calculator docker
+      shell: "docker run -d -p 80:3000 -t --restart always --name calc elieyal2/calculator"

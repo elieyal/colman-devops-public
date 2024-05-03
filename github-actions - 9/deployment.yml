@@ -1,0 +1,33 @@
+name: deploy my app to cloud
+
+on:
+  push:
+    branches: [ deployment ]
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python 3.8
+        uses: actions/setup-python@v1
+        with:
+            python-version: 3.8
+      - name: Install dependencies
+        run: |
+            sudo apt-add-repository ppa:ansible/ansible
+            python -m pip install --upgrade pip
+            pip install ansible==6.7.0 requests botocore boto boto3
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+            aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+            aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+            aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+      - name: Install SSH Key
+        uses: shimataro/ssh-key-action@v2
+        with:
+          key: ${{ secrets.PRIVATE_KEY }}
+          known_hosts: 'just-a-placeholder-so-we-dont-get-errors'
+      - name: run playbook
+        run: |
+          ansible-playbook deploy_calc.yml --ssh-common-args='-o StrictHostKeyChecking=no'

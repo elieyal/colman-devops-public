@@ -1,0 +1,21 @@
+name: Test docker before merge
+on:
+  pull_request:
+    branches: [ main ]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Build
+        run: docker build --tag calc .
+      - name: Run Docker
+        run: docker run -d --name app -p 80:3000 calc
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.9'
+      - name: Install the necessary packages
+        run: pip install requests webdriver-manager selenium pytest
+      - name: Run the PytTest script
+        run: pytest -rA
