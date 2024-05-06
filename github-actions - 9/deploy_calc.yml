@@ -71,7 +71,7 @@
 
   - name: Create server
     amazon.aws.ec2_instance:
-      image_id: "{{ aws_centos_ami }}"
+      image_id: "{{ aws_ubuntu_ami }}"
       wait: yes
       instance_type: "{{ Server_type }}"
       region: "{{ aws_region }}"
@@ -112,41 +112,41 @@
       port: 22
       timeout: 300
 
+  - name: Pause for for ubuntu user access after boot
+    ansible.builtin.pause:
+      seconds: 30
+
 ##############################################################
 - name: Setup app server
   hosts: app
-  user: centos
+  user: ubuntu
   become: True
-  gather_facts: True
+  gather_facts: False
   vars_files:
     - group_vars/env
   tasks:
-    - name: install base packages
-      yum: 
-        name: 
-          - epel-release
-        state: present
 
-    - name: Add signing key
-      ansible.builtin.rpm_key:
-        key: "https://download.docker.com/linux/centos/gpg"
-        state: present
+    # - name: Add Docker GPG apt Key
+    #   apt_key:
+    #     url: https://download.docker.com/linux/ubuntu/gpg
+    #     state: present
 
-    - name: Add repository into repo.d list
-      yum_repository:
-        name: docker
-        description: docker repository
-        baseurl: "https://download.docker.com/linux/centos/$releasever/$basearch/stable"
-        enabled: true
-        gpgcheck: true
-        gpgkey: "https://download.docker.com/linux/centos/gpg"
+    - name: add GPG key_name
+      ansible.builtin.shell: wget -qO - https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+      
+    - name: Add Docker Repository
+      apt_repository:
+        repo: deb https://download.docker.com/linux/ubuntu jammy stable
+        state: present
 
     - name: Install Docker
-      yum:
+      apt:
         name:
           - docker-ce
           - docker-ce-cli
           - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
         state: latest
         update_cache: true
 

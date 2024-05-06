@@ -1,9 +1,8 @@
 from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 from webdriver_manager.chrome import ChromeDriverManager
-from webdriver_manager.core.utils import ChromeType
+from selenium.webdriver.chrome.service import Service as ChromeService
 
 chrome_options = Options()
 options = [
@@ -21,9 +20,8 @@ for option in options:
 
 def test_site():
   url = "http://localhost"
-  webdriver_path = 'C:\\Users\\eliey\\Desktop\\chromedriver_win32\\chromedriver.exe'
 
-  se = Service(ChromeDriverManager(chrome_type=ChromeType.GOOGLE).install())
+  se = ChromeService(ChromeDriverManager().install())
   driver = webdriver.Chrome(service=se,options=chrome_options)
 
   driver.get(url)
