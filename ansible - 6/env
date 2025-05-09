@@ -1,0 +1,17 @@
+server_name: 
+env: 
+
+vpc_name: 
+network: 
+subnet_cidr: 
+env_name: 
+aws_region: 
+subnet: 
+
+keypair: 
+
+aws_centos_ami: 
+Server_type: 
+server_volume_size: 
+
+repo:
