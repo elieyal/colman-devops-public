@@ -1,0 +1,7 @@
+version: "3.9"
+services:
+  calc:
+    build: .
+    container_name: calc
+    ports:
+      - "80:3000"
