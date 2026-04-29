@@ -1,0 +1,12 @@
+Gitbub Console
+https://github.com
+
+Git-SCM installation
+https://git-scm.com/downloads
+
+SSH keys default location
+Windows: c:\users\<user>\.ssh\id_rsa
+Mac: ~/.ssh/id_rsa
+
+download Putty
+https://www.chiark.greenend.org.uk/~sgtatham/putty/latest.html
