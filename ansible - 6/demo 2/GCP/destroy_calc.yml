@@ -1,0 +1,102 @@
+- name: Destroy Calculator application infrastructure
+  hosts: localhost
+  connection: local
+  gather_facts: False
+  vars_files:
+    - group_vars/env
+  vars:
+      ansible_python_interpreter: /usr/bin/python3
+
+  tasks:
+  - name: Check if colman.env exists
+    stat:
+      path: group_vars/colman.env
+    register: colman_env_file
+
+  - name: Load resource IDs from colman.env if exists
+    include_vars:
+      file: group_vars/colman.env
+    when: colman_env_file.stat.exists
+
+  - name: Set resource names from colman.env or defaults
+    set_fact:
+      resource_server_name: "{{ server_name | default(server_name) }}"
+      resource_address_name: "{{ address_name | default(server_name ~ '-address') }}"
+      resource_firewall_http_name: "{{ firewall_http_name | default(vpc_name ~ '-allow-http') }}"
+      resource_firewall_ssh_name: "{{ firewall_ssh_name | default(vpc_name ~ '-allow-ssh') }}"
+      resource_subnet_name: "{{ subnet_name | default(subnet_name) }}"
+      resource_network_name: "{{ network_name | default(vpc_name) }}"
+
+  - name: Delete server instance
+    google.cloud.gcp_compute_instance:
+      name: "{{ resource_server_name }}"
+      zone: "{{ gcp_zone }}"
+      project: "{{ gcp_project }}"
+      auth_kind: "{{ gcp_auth_kind }}"
+      service_account_file: "{{ gcp_cred_file }}"
+      state: absent
+    ignore_errors: yes
+
+  - name: Delete static IP address
+    google.cloud.gcp_compute_address:
+      name: "{{ resource_address_name }}"
+      region: "{{ gcp_region }}"
+      project: "{{ gcp_project }}"
+      auth_kind: "{{ gcp_auth_kind }}"
+      service_account_file: "{{ gcp_cred_file }}"
+      state: absent
+    ignore_errors: yes
+
+  - name: Delete firewall rule - allow HTTP
+    google.cloud.gcp_compute_firewall:
+      name: "{{ resource_firewall_http_name }}"
+      project: "{{ gcp_project }}"
+      auth_kind: "{{ gcp_auth_kind }}"
+      service_account_file: "{{ gcp_cred_file }}"
+      state: absent
+    ignore_errors: yes
+
+  - name: Delete firewall rule - allow SSH
+    google.cloud.gcp_compute_firewall:
+      name: "{{ resource_firewall_ssh_name }}"
+      project: "{{ gcp_project }}"
+      auth_kind: "{{ gcp_auth_kind }}"
+      service_account_file: "{{ gcp_cred_file }}"
+      state: absent
+    ignore_errors: yes
+
+  - name: Delete subnet
+    google.cloud.gcp_compute_subnetwork:
+      name: "{{ resource_subnet_name }}"
+      region: "{{ gcp_region }}"
+      ip_cidr_range: "{{ subnet_cidr }}"
+      network:
+        name: "{{ resource_network_name }}"
+      project: "{{ gcp_project }}"
+      auth_kind: "{{ gcp_auth_kind }}"
+      service_account_file: "{{ gcp_cred_file }}"
+      state: absent
+    ignore_errors: yes
+
+  - name: Wait for subnet deletion to complete
+    pause:
+      seconds: 5
+
+  - name: Delete VPC network
+    google.cloud.gcp_compute_network:
+      name: "{{ resource_network_name }}"
+      project: "{{ gcp_project }}"
+      auth_kind: "{{ gcp_auth_kind }}"
+      service_account_file: "{{ gcp_cred_file }}"
+      state: absent
+    ignore_errors: yes
+
+  - name: Remove colman.env file with resource IDs
+    ansible.builtin.file:
+      path: group_vars/colman.env
+      state: absent
+    when: colman_env_file.stat.exists
+
+  - name: Destruction complete
+    debug:
+      msg: "All resources have been destroyed successfully"

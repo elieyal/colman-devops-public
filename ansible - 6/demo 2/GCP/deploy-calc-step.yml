@@ -1,0 +1,215 @@
+- name: Create server with Calculator application
+  hosts: localhost
+  connection: local
+  gather_facts: False
+  vars_files:
+    - group_vars/env
+  vars:
+      ansible_python_interpreter: /usr/bin/python3
+
+  tasks:
+  - name: create VPC network
+    google.cloud.gcp_compute_network:
+      name: "{{ vpc_name }}"
+      auto_create_subnetworks: no
+      project: "{{ gcp_project }}"
+      auth_kind: "{{ gcp_auth_kind }}"
+      service_account_file: "{{ gcp_cred_file }}"
+      state: present
+    register: network
+
+  - name: Add network definition to vars file
+    lineinfile:
+      path: group_vars/colman.env
+      regexp: 'network_name: '
+      line: 'network_name: {{ network.name }}'
+      state: present
+      create: True
+
+  - name: create subnet
+    google.cloud.gcp_compute_subnetwork:
+      name: "{{ subnet_name }}"
+      ip_cidr_range: "{{ subnet_cidr }}"
+      network: "{{ network }}"
+      region: "{{ gcp_region }}"
+      project: "{{ gcp_project }}"
+      auth_kind: "{{ gcp_auth_kind }}"
+      service_account_file: "{{ gcp_cred_file }}"
+      state: present
+    register: subnet
+
+  - name: Add subnet definition to vars file
+    ansible.builtin.lineinfile:
+      path: group_vars/colman.env
+      regexp: 'subnet_name: '
+      line: 'subnet_name: {{ subnet.name }}'
+      state: present
+      create: True
+
+  - name: create firewall rule - allow SSH
+    google.cloud.gcp_compute_firewall:
+      name: "{{ vpc_name }}-allow-ssh"
+      allowed:
+        - ip_protocol: tcp
+          ports:
+            - '22'
+      source_ranges:
+        - 0.0.0.0/0
+      network: "{{ network }}"
+      project: "{{ gcp_project }}"
+      auth_kind: "{{ gcp_auth_kind }}"
+      service_account_file: "{{ gcp_cred_file }}"
+      state: present
+    register: firewall_ssh
+
+  - name: Add SSH firewall rule to vars file
+    ansible.builtin.lineinfile:
+      path: group_vars/colman.env
+      regexp: 'firewall_ssh_name: '
+      line: 'firewall_ssh_name: {{ firewall_ssh.name }}'
+      state: present
+      create: True
+
+  - name: create firewall rule - allow HTTP
+    google.cloud.gcp_compute_firewall:
+      name: "{{ vpc_name }}-allow-http"
+      allowed:
+        - ip_protocol: tcp
+          ports:
+            - '80'
+      source_ranges:
+        - 0.0.0.0/0
+      network: "{{ network }}"
+      project: "{{ gcp_project }}"
+      auth_kind: "{{ gcp_auth_kind }}"
+      service_account_file: "{{ gcp_cred_file }}"
+      state: present
+    register: firewall_http
+
+  - name: Add HTTP firewall rule to vars file
+    ansible.builtin.lineinfile:
+      path: group_vars/colman.env
+      regexp: 'firewall_http_name: '
+      line: 'firewall_http_name: {{ firewall_http.name }}'
+      state: present
+      create: True
+
+  - name: Create address for instance
+    google.cloud.gcp_compute_address:
+      name: "{{ server_name }}-address"
+      region: "{{ gcp_region }}"
+      project: "{{ gcp_project }}"
+      auth_kind: "{{ gcp_auth_kind }}"
+      service_account_file: "{{ gcp_cred_file }}"
+      state: present
+    register: address
+
+  - name: Add address name to vars file
+    ansible.builtin.lineinfile:
+      path: group_vars/colman.env
+      regexp: 'address_name: '
+      line: 'address_name: {{ address.name }}'
+      state: present
+      create: True
+
+  - name: Create server instance
+    google.cloud.gcp_compute_instance:
+      name: "{{ server_name }}"
+      machine_type: "{{ machine_type }}"
+      zone: "{{ gcp_zone }}"
+      project: "{{ gcp_project }}"
+      auth_kind: "{{ gcp_auth_kind }}"
+      service_account_file: "{{ gcp_cred_file }}"
+      state: present
+      disks:
+        - auto_delete: true
+          boot: true
+          initialize_params:
+            disk_size_gb: "{{ server_volume_size }}"
+            source_image: "{{ gcp_ubuntu_image }}"
+      network_interfaces:
+        - network: "{{ network }}"
+          subnetwork: "{{ subnet }}"
+          access_configs:
+            - name: External NAT
+              nat_ip: "{{ address }}"
+              type: ONE_TO_ONE_NAT
+      tags:
+        items:
+          - http-server
+          - https-server
+      labels:
+        environment: "{{ env }}"
+      metadata:
+        ssh-keys: "ubuntu:{{ ssh_public_key }}"
+    register: instance
+
+  # - debug: var=instance
+
+  # - debug: var=instance.networkInterfaces[0].accessConfigs[0].natIP
+
+  - name: Add server public IP to application host group
+    add_host: 
+      hostname: "{{ instance.networkInterfaces[0].accessConfigs[0].natIP }}"
+      groups: app
+      ansible_user: ubuntu
+      ansible_ssh_private_key_file: "{{ ssh_private_key_file }}"
+      ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
+
+  - name: Add Public IP definition to vars file
+    ansible.builtin.lineinfile:
+      path: group_vars/colman.env
+      regexp: 'server_name: '
+      line: 'server_name: {{ instance.name }}'
+      state: present
+      create: True
+
+  - name: Wait for SSH to start using external IP
+    wait_for:
+      host: "{{ instance.networkInterfaces[0].accessConfigs[0].natIP }}"
+      port: 22
+      timeout: 300
+
+##############################################################
+
+- name: Setup app server
+  hosts: app
+  user: ubuntu
+  become: True
+  gather_facts: False
+  vars_files:
+    - group_vars/env
+  tasks:
+
+    - name: add GPG key_name
+      ansible.builtin.shell: wget -qO - https://download.docker.com/linux/debian/gpg | sudo apt-key add -
+
+    - name: Wait for GPG key to be registered
+      pause:
+        seconds: 10
+      
+    - name: Add Docker Repository
+      apt_repository:
+        repo: deb https://download.docker.com/linux/debian bookworm stable
+        state: present
+
+    - name: Install Docker
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-compose-plugin
+        state: latest
+        update_cache: true
+
+    - name: Copy file with owner and permissions
+      ansible.builtin.copy:
+        src: compose.yaml
+        dest: /opt/compose.yaml
+        mode: '0644'
+
+    - name: start app docker
+      shell: "docker compose up -d"
+      args:
+        chdir: /opt

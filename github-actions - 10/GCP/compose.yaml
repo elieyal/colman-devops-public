@@ -1,0 +1,6 @@
+services:
+  web:
+    container_name: calculator
+    image: elieyal2/calculator:latest
+    ports:
+      - "80:3000"

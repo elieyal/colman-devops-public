@@ -1,0 +1,25 @@
+server_name: eli-test
+env: prod
+
+vpc_name: eli-vpc
+subnet_name: eli-subnet
+subnet_cidr: 10.10.0.0/24
+env_name: prod
+
+# GCP Configuration
+gcp_project: test01-eyaleli
+gcp_region: me-west1
+gcp_zone: me-west1-a
+gcp_auth_kind: serviceaccount
+gcp_cred_file: ./service_account.json
+
+# Ubuntu 22.04 LTS image
+gcp_ubuntu_image: projects/ubuntu-os-cloud/global/images/family/ubuntu-2204-lts
+machine_type: e2-micro
+server_volume_size: 10
+
+# SSH public key content (paste your public key here)
+ssh_public_key: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDbOKJXgJmwnl1UwUI0DpvjdlX9kPe4AC1RfeSMD0QbgY4/2JQYk8kzGliOAH9zRaCUcB+MiOs2+5qHFaDIZWoK6heIEJSxax23eeZDuh10vWoFaUpojQVspCUczSThC7EKvmwBviYrv5W1XCemyiFtuuXscct09vosUfS4tNbAcF2ggB99AjB1MQeZfgJ9zYdgN/VnZPEo83yxr3Yqz/6BPzfF6PHUB4S5RzORPQph+eQIm//bgPcRzBv3eoEjZW05/gUQs8vS5TFeqWr++ToNGyZ1Df37kOtMjC/VpfmdBy9GU/wvyo6UYD3SpwVxm5sZabrV7Mh/c+7PEZ5BG+7T0p7DZBXHLYcwGPeXE9dyQkDOX56k+ZDupo5J83DNibuhtMSK8gwZWHx0lbgDf5ijZQ7aZ3a9Ct0bbZe2szp/obT1lzL1hhDk/DYzlYKFepdO14/Te/R8tUYGrcc/mfGy/XCtQJEwJjeDl3Fd6aAbR22mxAZXHlUND5ooco1DV7k="
+
+# SSH private key file path
+ssh_private_key_file: ~/.ssh/id_rsa

@@ -1,0 +1,17 @@
+server_name: calculator
+env: prod
+
+vpc_name: calc
+network: 10.10.0.0/16
+subnet_cidr: 10.10.0.0/24
+env_name: prod
+aws_region: eu-central-1
+subnet: eu-central-1a
+
+keypair: Colman2025
+
+aws_ubuntu_ami: ami-03250b0e01c28d196 
+Server_type: t2.micro
+server_volume_size: 10
+
+repo:

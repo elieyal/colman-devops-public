@@ -1,0 +1,7 @@
+version: "3.9"
+services:
+  web:
+    container_name: my_app
+    image: elieyal2/calc:latest
+    ports:
+      - "80:3000"

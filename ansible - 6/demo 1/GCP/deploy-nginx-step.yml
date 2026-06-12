@@ -1,0 +1,143 @@
+- name: Create a nginx server with site
+  hosts: localhost
+  connection: local
+  gather_facts: False
+  vars_files:
+    - group_vars/env
+  vars:
+      ansible_python_interpreter: /usr/bin/python3
+
+  tasks:
+  - name: create VPC network
+    google.cloud.gcp_compute_network:
+      name: "{{ vpc_name }}"
+      auto_create_subnetworks: no
+      project: "{{ gcp_project }}"
+      auth_kind: "{{ gcp_auth_kind }}"
+      service_account_file: "{{ gcp_cred_file }}"
+      state: present
+    register: network
+
+  - name: create subnet
+    google.cloud.gcp_compute_subnetwork:
+      name: "{{ subnet_name }}"
+      ip_cidr_range: "{{ subnet_cidr }}"
+      network: "{{ network }}"
+      region: "{{ gcp_region }}"
+      project: "{{ gcp_project }}"
+      auth_kind: "{{ gcp_auth_kind }}"
+      service_account_file: "{{ gcp_cred_file }}"
+      state: present
+    register: subnet
+  
+  - name: create firewall rule - allow SSH
+    google.cloud.gcp_compute_firewall:
+      name: "{{ vpc_name }}-allow-ssh"
+      allowed:
+        - ip_protocol: tcp
+          ports:
+            - '22'
+      source_ranges:
+        - 0.0.0.0/0
+      network: "{{ network }}"
+      project: "{{ gcp_project }}"
+      auth_kind: "{{ gcp_auth_kind }}"
+      service_account_file: "{{ gcp_cred_file }}"
+      state: present
+
+  - name: create firewall rule - allow HTTP
+    google.cloud.gcp_compute_firewall:
+      name: "{{ vpc_name }}-allow-http"
+      allowed:
+        - ip_protocol: tcp
+          ports:
+            - '80'
+      source_ranges:
+        - 0.0.0.0/0
+      network: "{{ network }}"
+      project: "{{ gcp_project }}"
+      auth_kind: "{{ gcp_auth_kind }}"
+      service_account_file: "{{ gcp_cred_file }}"
+      state: present
+    register: firewall
+
+  - name: Create address for instance
+    google.cloud.gcp_compute_address:
+      name: "{{ server_name }}-address"
+      region: "{{ gcp_region }}"
+      project: "{{ gcp_project }}"
+      auth_kind: "{{ gcp_auth_kind }}"
+      service_account_file: "{{ gcp_cred_file }}"
+      state: present
+    register: address
+
+  - name: Create server instance
+    google.cloud.gcp_compute_instance:
+      name: "{{ server_name }}"
+      machine_type: "{{ machine_type }}"
+      zone: "{{ gcp_zone }}"
+      project: "{{ gcp_project }}"
+      auth_kind: "{{ gcp_auth_kind }}"
+      service_account_file: "{{ gcp_cred_file }}"
+      state: present
+      disks:
+        - auto_delete: true
+          boot: true
+          initialize_params:
+            disk_size_gb: "{{ server_volume_size }}"
+            source_image: "{{ gcp_ubuntu_image }}"
+      network_interfaces:
+        - network: "{{ network }}"
+          subnetwork: "{{ subnet }}"
+          access_configs:
+            - name: External NAT
+              nat_ip: "{{ address }}"
+              type: ONE_TO_ONE_NAT
+      tags:
+        items:
+          - http-server
+          - https-server
+      labels:
+        environment: "{{ env }}"
+      metadata:
+        ssh-keys: "ubuntu:{{ ssh_public_key }}"
+    register: instance
+
+  - debug: var=instance
+
+  - name: Add server public IP to application host group
+    add_host: 
+      hostname: "{{ instance.networkInterfaces[0].accessConfigs[0].natIP }}"
+      groups: app
+      ansible_user: ubuntu
+      ansible_ssh_private_key_file: "{{ ssh_private_key_file }}"
+      ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
+
+  - name: Wait for SSH to start using external IP
+    wait_for:
+      host: "{{ instance.networkInterfaces[0].accessConfigs[0].natIP }}"
+      port: 22
+      timeout: 300
+
+# ##############################################################
+- name: Setup web server
+  hosts: app
+  user: ubuntu
+  become: True
+  gather_facts: True
+  vars_files:
+    - group_vars/env
+  tasks:
+    - name: install base packages
+      ansible.builtin.apt: 
+        name: 
+          - git
+          - nginx
+        update_cache: yes
+        state: present
+
+    - name: restart nginx
+      service:
+        name: nginx
+        state: restarted
+        enabled: yes

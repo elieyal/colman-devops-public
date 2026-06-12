@@ -1,0 +1,37 @@
+Ansible installation:
+https://docs.ansible.com/ansible/latest/installation_guide/intro_installation.html
+
+Windows: https://phoenixnap.com/kb/install-ansible-on-windows
+
+Ubuntu on windows 10
+https://ubuntu.com/tutorials/install-ubuntu-on-wsl2-on-windows-10#2-install-wsl
+https://phoenixnap.com/kb/install-ansible-on-windows#ftoc-heading-7
+
+MAC
+https://hvops.com/articles/ansible-mac-osx/
+
+Ubuntu
+https://cloudcone.com/docs/article/how-to-install-ansible-on-ubuntu-18-04/
+
+
+
+AWS CLI
+https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html
+
+putty:
+windows: https://www.putty.org/
+MAC: https://www.ssh.com/academy/ssh/putty/mac#using-the-built-in-ssh-client-in-mac-os-x
+
+Ansible:
+VPC: https://docs.ansible.com/ansible/latest/collections/amazon/aws/ec2_vpc_net_module.html
+Subnet: https://docs.ansible.com/ansible/latest/collections/amazon/aws/ec2_vpc_subnet_module.html
+IGW: https://docs.ansible.com/ansible/latest/collections/community/aws/ec2_vpc_igw_module.html
+Route Table: https://docs.ansible.com/ansible/latest/collections/amazon/aws/ec2_vpc_route_table_module.html#ansible-collections-amazon-aws-ec2-vpc-route-table-module
+Security Group: https://docs.ansible.com/ansible/2.9/modules/ec2_group_info_module.html
+EC2 Instance: https://docs.ansible.com/ansible/latest/collections/amazon/aws/ec2_instance_module.html
+Wait: https://docs.ansible.com/ansible/2.9/modules/wait_for_module.html
+yum: https://docs.ansible.com/ansible/2.9/modules/yum_module.html
+service: https://docs.ansible.com/ansible/2.9/modules/service_module.html
+Copy: https://docs.ansible.com/ansible/2.9/modules/copy_module.html
+EC2 Info: https://docs.ansible.com/ansible/latest/collections/amazon/aws/ec2_instance_info_module.html
+
